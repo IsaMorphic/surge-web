@@ -22,7 +22,7 @@ onmessage = e => {
             for (let j = 0; j < layerFactorH; j++) {
                 let value = layerBuffer[currOffset++];
                 if (layerIdx < maxLayerIdx && (value > 0 || value == -2147483648)) {
-                    const offset = value == -2147483648 ? 0 : value;
+                    const offset = value == -2147483648 ? 0 : value >> 2;
                     decodeInner(currOffset + offset, layerIdx + 1,
                         x0 + width * i / layerFactorW,
                         y0 + height * j / layerFactorH,
