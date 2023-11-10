@@ -1,7 +1,7 @@
 ```toml
 %%%
 
-title = "SSRG (Scalable Streaming Raster Graphics) Specification Version 2.0"
+title = "SSRG (Scalable Streaming Raster Graphics) Specification Version 1.0"
 keyword = ["streaming", "image", "graphics", "web", "scalable", "multi-resolution", "raster"]
 area = "Internet"
 ipr="trust200902"
@@ -134,7 +134,7 @@ The first value of a given pair should ALWAYS be treated as a differentially cod
 
 The second value of a given pair, if it exists, should ALWAYS be treated as an offset value to the first child of this node. Further, its two LSBs MUST be cleared to obtain the actual offset value. The author notes that these two bits are reserved for future revisions of the SSRG stream specification. 
 
-Readers are encouraged to read the next section and/or view the reference implementation attached to this Internet-Draft for more context and information about how one might properly decode SSRG streams. 
+Readers are encouraged to read the next section and/or view the reference implementation attached to this Internet-Draft for more context and information about how one might properly decode SSRG streams [surge-web]. 
 
 ## Part B: Decoding algorithm
 
@@ -154,11 +154,11 @@ For a rectangular image `K` with an aspect ratio of `N:M`
 
 Finally, having outlined these criteria, one can modify the quad-tree decomposition algorithm discussed at the beginning of this document such that the image tree can be subdivided into an arbitrary number of square regions, per axis, at each recursive step. Note well that both the aspect ratio and prime factorizations of the input image dimensions can be computed from the width and height values provided in the header alone. 
 
-The author recognizes that the explanation provided in this part of the specification is somewhat ambiguous and lacks the type of precise clarity required to write an appropriate implementation. For this reason, she highly recommends viewing the official decoder implementation attached to this document as a reference point. 
+The author recognizes that the explanation provided in this part of the specification is somewhat ambiguous and lacks the type of precise clarity required to write an appropriate implementation. For this reason, she highly recommends viewing the official decoder implementation attached to this document as a reference point [surge-web]. 
 
 ## Part C: HTTP conventions
 
-All WWW servers that plan to support the SSRG specification should properly use the following conventions in HTTP responses serving requests for SSRG format images. 
+All WWW servers that plan to support the SSRG specification should properly use the following conventions in HTTP responses [RFC9113] serving requests for SSRG format images. 
 
 ### MIME Headers
 
@@ -175,3 +175,13 @@ The author of this Internet-Draft does not anticipate that any serious considera
 ## IANA Considerations
 
 This document has no IANA actions.
+
+## References
+
+### Normative References
+
+[RFC9113] M. Thomson, Ed., Mozilla, C. Benfield, Ed., Apple Inc., "HTTP/2", RFC 9113, DOI 10.17487/RFC9113, June 2022, <https://www.rfc-editor.org/info/rfc9113>.
+
+### Informative References
+
+[surge-web] "Example JavaScript SSRG stream decoder", commit 557af22, November 2023, <https://github.com/IsaMorphic/surge-web>.
