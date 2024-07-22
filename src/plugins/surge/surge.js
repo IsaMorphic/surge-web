@@ -78,16 +78,15 @@ async function* surgeParse(url) {
                 if (!status.done) {
                     const chunk = status.value;
                     leftover = concat([leftover, chunk]);
-
-                    if (leftover.byteLength >= chunkSize) {
-                        const chunkToSend = leftover.slice(0, chunkSize);
-                        controller.enqueue(chunkToSend);
-
-                        leftover = new Uint8Array(leftover.buffer, leftover.byteOffset + chunkSize);
-                        fulfilledChunkQuota = true;
-                    }
                 }
-                if (status.done) {
+
+                if (leftover.byteLength >= chunkSize) {
+                    const chunkToSend = leftover.slice(0, chunkSize);
+                    controller.enqueue(chunkToSend);
+
+                    leftover = new Uint8Array(leftover.buffer, leftover.byteOffset + chunkSize);
+                    fulfilledChunkQuota = true;
+                } else if (status.done) {
                     fulfilledChunkQuota = true;
                     controller.close();
                 }
