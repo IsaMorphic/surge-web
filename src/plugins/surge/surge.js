@@ -12,6 +12,10 @@ ReadableStream.prototype[Symbol.asyncIterator] = async function* () {
     }
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function concat(views) {
     let length = 0
     for (const v of views)
@@ -46,7 +50,7 @@ async function* surgeParse(url) {
         if (number > 1) yield number;
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url, { headers: { "Content-Type": "application/x-cfs-surge" } });
     const reader = response.body.getReader();
 
     let leftover = (await reader.read()).value;
@@ -86,7 +90,8 @@ async function* surgeParse(url) {
 
                     leftover = new Uint8Array(leftover.buffer, leftover.byteOffset + chunkSize);
                     fulfilledChunkQuota = true;
-                } else if (status.done) {
+                }
+                else if (status.done) {
                     fulfilledChunkQuota = true;
                     controller.close();
                 }
@@ -128,6 +133,7 @@ async function surgeMain(surgeElement) {
     const worker = new Worker('/plugins/surge/surge-worker.js');
     for await (const chunk of surgeParse(surgeElement.getAttribute('src'))) {
         if (chunk instanceof Int32Array) {
+            await delay(750);
             layerBuffer = layerBuffer == null ? chunk : new Int32Array(concat([layerBuffer, chunk]).buffer);
             canvasImageData = await surgeDecode(worker, canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
             canvasCtx.putImageData(canvasImageData, 0, 0);
@@ -155,12 +161,7 @@ async function surgeMain(surgeElement) {
     }
 }
 
-function surgeInstall() {
-    let surgePromises = [];
-    for (const surgeElement of document.getElementsByTagName('surge')) {
-        surgePromises.push(surgeMain(surgeElement));
-    }
-    return Promise.all(surgePromises);
-}
-
-console.log(surgeInstall());
+new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(el => {
+    if (el instanceof HTMLImageElement)
+        el.onerror = () => surgeMain(el);
+}))).observe(document.documentElement, { subtree: true, childList: true });
