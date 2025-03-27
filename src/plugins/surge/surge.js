@@ -116,12 +116,8 @@ function surgeDecode(worker, imageData, layers, layerBuffer, maxLayerIdx) {
     });
 }
 async function surgeMain(surgeElement) {
-    const scale = window.devicePixelRatio;
-
-    const canvasElem = document.createElement('canvas');
-    const canvasCtx = canvasElem.getContext('2d');
-
-    surgeElement.parentElement.appendChild(canvasElem);
+    let canvasElem;
+    let canvasCtx;
 
     let ssrgHeader;
     let canvasImageData;
@@ -133,18 +129,21 @@ async function surgeMain(surgeElement) {
     const worker = new Worker('/plugins/surge/surge-worker.js');
     for await (const chunk of surgeParse(surgeElement.getAttribute('src'))) {
         if (chunk instanceof Int32Array) {
-            await delay(750);
             layerBuffer = layerBuffer == null ? chunk : new Int32Array(concat([layerBuffer, chunk]).buffer);
             canvasImageData = await surgeDecode(worker, canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
             canvasCtx.putImageData(canvasImageData, 0, 0);
         } else {
             ssrgHeader = chunk;
+            
+            canvasElem = document.createElement('canvas');
+            canvasCtx = canvasElem.getContext('2d');
 
             canvasElem.classList = surgeElement.classList;
 
             canvasElem.width = ssrgHeader.width;
             canvasElem.height = ssrgHeader.height;
-
+            
+            surgeElement.parentElement.appendChild(canvasElem);
             surgeElement.remove();
 
             canvasImageData = canvasCtx.getImageData(0, 0, ssrgHeader.width, ssrgHeader.height);
