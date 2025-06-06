@@ -32,7 +32,19 @@ function concat(views) {
     return buf
 }
 
-async function* surgeParse(url) {
+const surgePlugin = { invocCount: 0, maxWorkers: 1, workers: [] };
+
+surgePlugin.getWorker = function () {
+    if (!this.workers[this.invocCount % this.maxWorkers]) {
+        const worker = new Worker('/plugins/surge/surge-worker.js');
+        this.workers.push(worker);
+        return worker;
+    } else {
+        return this.workers[this.invocCount++ % this.maxWorkers];
+    }
+}
+
+surgePlugin.parse = async function* (url) {
     function gcd(a, b) {
         if (b == 0)
             return a;
@@ -50,7 +62,7 @@ async function* surgeParse(url) {
         if (number > 1) yield number;
     }
 
-    const response = await fetch(url, { headers: { "Content-Type": "application/x-cfs-surge" } });
+    const response = await fetch(url, { headers: { "Accept": "application/x-cfs-surge" } });
     const reader = response.body.getReader();
 
     let leftover = (await reader.read()).value;
@@ -104,18 +116,21 @@ async function* surgeParse(url) {
     }
 }
 
-function surgeDecode(worker, imageData, layers, layerBuffer, maxLayerIdx) {
+surgePlugin.decode = function (worker, workerId, imageData, layers, layerBuffer, maxLayerIdx) {
     return new Promise((resolve, reject) => {
-        worker.onmessage = e => {
-            resolve(e.data);
-        }
+        worker.addEventListener("message", e => {
+            if (e.data.workerId == workerId) {
+                resolve(e.data.imageData);
+            }
+        });
 
         worker.postMessage(
-            { imageData, layers, layerBuffer, maxLayerIdx }
+            { workerId, imageData, layers, layerBuffer, maxLayerIdx }
         );
     });
 }
-async function surgeMain(surgeElement) {
+
+surgePlugin.main = async function (surgeElement) {
     let canvasElem;
     let canvasCtx;
 
@@ -125,16 +140,17 @@ async function surgeMain(surgeElement) {
     let layerBuffer = null;
     let layerNum = -1;
 
-
-    const worker = new Worker('/plugins/surge/surge-worker.js');
-    for await (const chunk of surgeParse(surgeElement.getAttribute('src'))) {
+    const srcUrl = surgeElement.getAttribute('src');
+    const workerId = srcUrl + "-" + Date.now();
+    const worker = this.getWorker();
+    for await (const chunk of this.parse(srcUrl)) {
         if (chunk instanceof Int32Array) {
             layerBuffer = layerBuffer == null ? chunk : new Int32Array(concat([layerBuffer, chunk]).buffer);
-            canvasImageData = await surgeDecode(worker, canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
+            canvasImageData = await this.decode(worker, workerId, canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
             canvasCtx.putImageData(canvasImageData, 0, 0);
         } else {
             ssrgHeader = chunk;
-            
+
             canvasElem = document.createElement('canvas');
             canvasCtx = canvasElem.getContext('2d');
 
@@ -142,7 +158,7 @@ async function surgeMain(surgeElement) {
 
             canvasElem.width = ssrgHeader.width;
             canvasElem.height = ssrgHeader.height;
-            
+
             surgeElement.parentElement.appendChild(canvasElem);
             surgeElement.remove();
 
@@ -162,5 +178,5 @@ async function surgeMain(surgeElement) {
 
 new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(el => {
     if (el instanceof HTMLImageElement)
-        el.onerror = () => surgeMain(el);
+        el.onerror = () => surgePlugin.main(el);
 }))).observe(document.documentElement, { subtree: true, childList: true });
