@@ -6,8 +6,8 @@ onmessage = e => {
             return gcd(b, a % b);
     }
 
+    const workerId = e.data.workerId;
     const imageData = e.data.imageData;
-    const imageDataView = new Uint32Array(imageData.data.buffer);
     const layers = e.data.layers;
     const layerBuffer = e.data.layerBuffer;
     const maxLayerIdx = e.data.maxLayerIdx;
@@ -50,5 +50,5 @@ onmessage = e => {
     }
 
     decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
-    postMessage(imageData);
+    postMessage({ workerId, imageData });
 }
