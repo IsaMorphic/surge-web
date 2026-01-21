@@ -1,12 +1,10 @@
 this.data = {
-    imageData: { }
+    imageData: {},
 };
-onmessage = e => {
+onmessage = (e) => {
     function gcd(a, b) {
-        if (b == 0)
-            return a;
-        else
-            return gcd(b, a % b);
+        if (b == 0) return a;
+        else return gcd(b, a % b);
     }
 
     const workerId = e.data.workerId;
@@ -19,19 +17,27 @@ onmessage = e => {
     const aspectH = imageData.height / gcd(imageData.width, imageData.height);
 
     function decodeInner(currOffset, layerIdx, x0, y0, width, height) {
-        const layerFactorW = layerIdx < 0 ? aspectW : layers[layers.length - (layerIdx + 1)];
-        const layerFactorH = layerIdx < 0 ? aspectH : layers[layers.length - (layerIdx + 1)];
+        const layerFactorW =
+            layerIdx < 0 ? aspectW : layers[layers.length - (layerIdx + 1)];
+        const layerFactorH =
+            layerIdx < 0 ? aspectH : layers[layers.length - (layerIdx + 1)];
 
         for (let i = 0; i < layerFactorW; i++) {
             for (let j = 0; j < layerFactorH; j++) {
                 let value = layerBuffer[currOffset++];
-                if (layerIdx < maxLayerIdx && (value > 0 || value == -2147483648)) {
+                if (
+                    layerIdx < maxLayerIdx &&
+                    (value > 0 || value == -2147483648)
+                ) {
                     const offset = value == -2147483648 ? 0 : value >> 2;
-                    decodeInner(currOffset + offset, layerIdx + 1,
-                        x0 + width * i / layerFactorW,
-                        y0 + height * j / layerFactorH,
+                    decodeInner(
+                        currOffset + offset,
+                        layerIdx + 1,
+                        x0 + (width * i) / layerFactorW,
+                        y0 + (height * j) / layerFactorH,
                         width / layerFactorW,
-                        height / layerFactorH);
+                        height / layerFactorH,
+                    );
                     currOffset++;
                 } else if (layerIdx == maxLayerIdx) {
                     if (value > 0 || value == -2147483648) {
@@ -40,11 +46,26 @@ onmessage = e => {
                         value = -value;
                     }
 
-                    const unpackedColor = ((value & 0x7F000000) << 1) | (value & 0x00FFFFFF);
-                    for (let y = y0 + height * j / layerFactorH; y < y0 + height * (j + 1) / layerFactorH; y++) {
-                        for (let x = x0 + width * i / layerFactorW; x < x0 + width * (i + 1) / layerFactorW; x++) {
+                    const unpackedColor =
+                        ((value & 0x7f000000) << 1) | (value & 0x00ffffff);
+                    for (
+                        let y = y0 + (height * j) / layerFactorH;
+                        y < y0 + (height * (j + 1)) / layerFactorH;
+                        y++
+                    ) {
+                        for (
+                            let x = x0 + (width * i) / layerFactorW;
+                            x < x0 + (width * (i + 1)) / layerFactorW;
+                            x++
+                        ) {
                             for (let ch = 0; ch < 4; ch++) {
-                                imageData.data[(y * imageData.width + x) * 4 + ch] += (((unpackedColor >> (ch * 8)) & 0xFF) << 24 >> 24) * 2;
+                                imageData.data[
+                                    (y * imageData.width + x) * 4 + ch
+                                ] +=
+                                    ((((unpackedColor >> (ch * 8)) & 0xff) <<
+                                        24) >>
+                                        24) *
+                                    2;
                             }
                         }
                     }
@@ -57,4 +78,4 @@ onmessage = e => {
     postMessage({ workerId, imageData });
 
     this.data.imageData[workerId] ??= imageData;
-}
+};
