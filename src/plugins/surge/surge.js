@@ -63,6 +63,8 @@ surgePlugin.parse = async function* (url) {
     }
 
     const response = await fetch(url, { headers: { "Accept": "application/x-cfs-surge" } });
+    if (response.headers.get("Content-Type") != "application/x-cfs-surge") return;
+
     const reader = response.body.getReader();
 
     let leftover = (await reader.read()).value;
@@ -140,13 +142,14 @@ surgePlugin.main = async function (surgeElement) {
     let layerBuffer = null;
     let layerNum = -1;
 
+    const altText = surgeElement.getAttribute('alt');
     const srcUrl = surgeElement.getAttribute('src');
     const workerId = srcUrl + "-" + Date.now();
     const worker = this.getWorker();
     for await (const chunk of this.parse(srcUrl)) {
         if (chunk instanceof Int32Array) {
             layerBuffer = layerBuffer == null ? chunk : new Int32Array(concat([layerBuffer, chunk]).buffer);
-            canvasImageData = await this.decode(worker, workerId, canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
+            canvasImageData = await this.decode(worker, workerId, layerNum > 0 ? null : canvasImageData, ssrgHeader.layers, layerBuffer, layerNum++);
             canvasCtx.putImageData(canvasImageData, 0, 0);
         } else {
             ssrgHeader = chunk;
@@ -154,7 +157,12 @@ surgePlugin.main = async function (surgeElement) {
             canvasElem = document.createElement('canvas');
             canvasCtx = canvasElem.getContext('2d');
 
+            canvasElem.id = surgeElement.id;
             canvasElem.classList = surgeElement.classList;
+
+            const altTextElem = document.createElement('p');
+            altTextElem.innerText = altText;
+            canvasElem.appendChild(altTextElem);
 
             canvasElem.width = ssrgHeader.width;
             canvasElem.height = ssrgHeader.height;

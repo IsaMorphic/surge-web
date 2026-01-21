@@ -1,3 +1,6 @@
+this.data = {
+    imageData: { }
+};
 onmessage = e => {
     function gcd(a, b) {
         if (b == 0)
@@ -7,10 +10,11 @@ onmessage = e => {
     }
 
     const workerId = e.data.workerId;
-    const imageData = e.data.imageData;
     const layers = e.data.layers;
     const layerBuffer = e.data.layerBuffer;
     const maxLayerIdx = e.data.maxLayerIdx;
+
+    const imageData = this.data.imageData[workerId] ?? e.data.imageData;
     const aspectW = imageData.width / gcd(imageData.width, imageData.height);
     const aspectH = imageData.height / gcd(imageData.width, imageData.height);
 
@@ -51,4 +55,6 @@ onmessage = e => {
 
     decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
     postMessage({ workerId, imageData });
+
+    this.data.imageData[workerId] ??= imageData;
 }
