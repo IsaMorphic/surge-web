@@ -190,7 +190,10 @@ surgePlugin.main = async function (surgeElement) {
             if (altText) {
                 canvasElem.setAttribute("role", "img");
                 canvasElem.setAttribute("aria-label", altText);
-                canvasElem.innerText = altText;
+
+                const altTextElem = document.createElement("p");
+                altTextElem.innerText = altText;
+                canvasElem.appendChild(altTextElem);
             }
 
             canvasElem.width = ssrgHeader.width;
