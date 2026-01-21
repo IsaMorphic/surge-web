@@ -159,6 +159,7 @@ surgePlugin.main = async function (surgeElement) {
     let layerBuffer = null;
     let layerNum = -1;
 
+    const elemId = surgeElement.getAttribute("id");
     const altText = surgeElement.getAttribute("alt");
     const srcUrl = surgeElement.getAttribute("src");
     const workerId = srcUrl + "-" + Date.now();
@@ -184,8 +185,9 @@ surgePlugin.main = async function (surgeElement) {
             canvasElem = document.createElement("canvas");
             canvasCtx = canvasElem.getContext("2d");
 
-            canvasElem.id = surgeElement.id;
-            canvasElem.classList = surgeElement.classList;
+            if (elemId) {
+                canvasElem.setAttribute("id", elemId);
+            }
 
             if (altText) {
                 canvasElem.setAttribute("role", "img");
@@ -195,6 +197,8 @@ surgePlugin.main = async function (surgeElement) {
                 altTextElem.innerText = altText;
                 canvasElem.appendChild(altTextElem);
             }
+
+            canvasElem.classList = surgeElement.classList;
 
             canvasElem.width = ssrgHeader.width;
             canvasElem.height = ssrgHeader.height;
