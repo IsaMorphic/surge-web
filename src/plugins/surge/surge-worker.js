@@ -1,4 +1,5 @@
 this.data = {
+    layerIndices: {},
     imageData: {},
 };
 onmessage = (e) => {
@@ -16,6 +17,7 @@ onmessage = (e) => {
     const aspectW = imageData.width / gcd(imageData.width, imageData.height);
     const aspectH = imageData.height / gcd(imageData.width, imageData.height);
 
+    let currLayerIdx = this.data.layerIndices[workerId] ?? -1;
     function decodeInner(currOffset, layerIdx, x0, y0, width, height) {
         const layerFactorW =
             layerIdx < 0 ? aspectW : layers[layers.length - (layerIdx + 1)];
@@ -26,7 +28,7 @@ onmessage = (e) => {
             for (let j = 0; j < layerFactorH; j++) {
                 let value = layerBuffer[currOffset++];
                 if (
-                    layerIdx < maxLayerIdx &&
+                    layerIdx < currLayerIdx &&
                     (value > 0 || value == -2147483648)
                 ) {
                     const offset = value == -2147483648 ? 0 : value >> 2;
@@ -39,7 +41,7 @@ onmessage = (e) => {
                         height / layerFactorH,
                     );
                     currOffset++;
-                } else if (layerIdx == maxLayerIdx) {
+                } else if (layerIdx == currLayerIdx) {
                     if (value > 0 || value == -2147483648) {
                         value = layerBuffer[currOffset++];
                     } else if (value < 0 && value != -2147483648) {
@@ -74,8 +76,11 @@ onmessage = (e) => {
         }
     }
 
-    decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
-    postMessage({ workerId, imageData });
+    for (; currLayerIdx <= maxLayerIdx; currLayerIdx++) {
+        decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
+        postMessage({ workerId, currLayerIdx, imageData });
+    }
 
+    this.data.layerIndices[workerId] = currLayerIdx;
     this.data.imageData[workerId] ??= imageData;
 };

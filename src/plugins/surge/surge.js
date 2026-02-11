@@ -11,10 +11,6 @@ ReadableStream.prototype[Symbol.asyncIterator] = async function* () {
     }
 };
 
-function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function concat(views) {
     let length = 0;
     for (const v of views) length += v.byteLength;
@@ -134,7 +130,10 @@ surgePlugin.decode = function (
 ) {
     return new Promise((resolve, reject) => {
         worker.addEventListener("message", (e) => {
-            if (e.data.workerId == workerId) {
+            if (
+                e.data.workerId == workerId &&
+                e.data.currLayerIdx == maxLayerIdx
+            ) {
                 resolve(e.data.imageData);
             }
         });
@@ -159,6 +158,7 @@ surgePlugin.main = async function (surgeElement) {
     let layerBuffer = null;
     let layerNum = -1;
 
+    const classList = surgeElement.classList ?? [];
     const elemId = surgeElement.getAttribute("id");
     const altText = surgeElement.getAttribute("alt");
     const srcUrl = surgeElement.getAttribute("src");
@@ -198,7 +198,9 @@ surgePlugin.main = async function (surgeElement) {
                 canvasElem.appendChild(altTextElem);
             }
 
-            canvasElem.classList = surgeElement.classList;
+            if (classList.length > 0) {
+                canvasElem.classList = classList;
+            }
 
             canvasElem.width = ssrgHeader.width;
             canvasElem.height = ssrgHeader.height;
