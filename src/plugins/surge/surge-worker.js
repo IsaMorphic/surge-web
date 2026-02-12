@@ -2,7 +2,7 @@ this.data = {
     layerIndices: {},
     imageData: {},
 };
-onmessage = (e) => {
+onmessage = async (e) => {
     function gcd(a, b) {
         if (b == 0) return a;
         else return gcd(b, a % b);
@@ -10,7 +10,7 @@ onmessage = (e) => {
 
     const workerId = e.data.workerId;
     const layers = e.data.layers;
-    const layerBuffer = e.data.layerBuffer;
+    const layerBuffer = new Int32Array(e.data.layerBuffer);
     const maxLayerIdx = e.data.maxLayerIdx;
 
     const imageData = this.data.imageData[workerId] ?? e.data.imageData;
@@ -78,7 +78,8 @@ onmessage = (e) => {
 
     for (; currLayerIdx <= maxLayerIdx; currLayerIdx++) {
         decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
-        postMessage({ workerId, currLayerIdx, imageData });
+        const imageBitmap = await createImageBitmap(imageData);
+        postMessage({ workerId, currLayerIdx, imageBitmap });
     }
 
     this.data.layerIndices[workerId] = currLayerIdx;

@@ -26,7 +26,7 @@ function concat(views) {
     return buf;
 }
 
-const surgePlugin = { invocCount: 0, maxWorkers: 1, workers: [] };
+const surgePlugin = { invocCount: 0, maxWorkers: 4, workers: [] };
 
 surgePlugin.getWorker = function () {
     if (!this.workers[this.invocCount % this.maxWorkers]) {
@@ -134,7 +134,7 @@ surgePlugin.decode = function (
                 e.data.workerId == workerId &&
                 e.data.currLayerIdx == maxLayerIdx
             ) {
-                resolve(e.data.imageData);
+                resolve(e.data.imageBitmap);
             }
         });
 
@@ -170,15 +170,22 @@ surgePlugin.main = async function (surgeElement) {
                 layerBuffer == null
                     ? chunk
                     : new Int32Array(concat([layerBuffer, chunk]).buffer);
-            canvasImageData = await this.decode(
+            const canvasImageBitmap = await this.decode(
                 worker,
                 workerId,
                 layerNum > 0 ? null : canvasImageData,
                 ssrgHeader.layers,
-                layerBuffer,
+                layerBuffer.buffer,
                 layerNum++,
             );
-            canvasCtx.putImageData(canvasImageData, 0, 0);
+            canvasCtx.clearRect(
+                0,
+                0,
+                canvasImageBitmap.width,
+                canvasImageBitmap.height,
+            );
+            canvasCtx.drawImage(canvasImageBitmap, 0, 0);
+            canvasImageBitmap.close();
         } else {
             ssrgHeader = chunk;
 
