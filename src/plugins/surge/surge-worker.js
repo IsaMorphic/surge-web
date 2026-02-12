@@ -79,7 +79,7 @@ onmessage = async (e) => {
     for (; currLayerIdx <= maxLayerIdx; currLayerIdx++) {
         decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
         const imageBitmap = await createImageBitmap(imageData);
-        postMessage({ workerId, currLayerIdx, imageBitmap });
+        postMessage({ workerId, currLayerIdx, imageBitmap }, [imageBitmap]);
     }
 
     this.data.layerIndices[workerId] = currLayerIdx;
