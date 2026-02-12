@@ -32,6 +32,7 @@ surgePlugin.getWorker = function () {
     if (!this.workers[this.invocCount % this.maxWorkers]) {
         const worker = new Worker("/plugins/surge/surge-worker.js");
         this.workers.push(worker);
+        ++this.invocCount;
         return worker;
     } else {
         return this.workers[this.invocCount++ % this.maxWorkers];
@@ -138,13 +139,16 @@ surgePlugin.decode = function (
             }
         });
 
-        worker.postMessage({
-            workerId,
-            imageData,
-            layers,
-            layerBuffer,
-            maxLayerIdx,
-        });
+        worker.postMessage(
+            {
+                workerId,
+                imageData,
+                layers,
+                layerBuffer,
+                maxLayerIdx,
+            },
+            [layerBuffer],
+        );
     });
 };
 
@@ -155,8 +159,7 @@ surgePlugin.main = async function (surgeElement) {
     let ssrgHeader;
     let canvasImageData;
 
-    let layerBuffer = null;
-    let layerNum = -1;
+    const layers = [];
 
     const classList = surgeElement.classList ?? [];
     const elemId = surgeElement.getAttribute("id");
@@ -166,17 +169,17 @@ surgePlugin.main = async function (surgeElement) {
     const worker = this.getWorker();
     for await (const chunk of this.parse(srcUrl)) {
         if (chunk instanceof Int32Array) {
-            layerBuffer =
-                layerBuffer == null
-                    ? chunk
-                    : new Int32Array(concat([layerBuffer, chunk]).buffer);
+            const layerNum = layers.length - 1;
+            layers.push(chunk);
+
+            const layerBuffer = concat(layers).buffer;
             const canvasImageBitmap = await this.decode(
                 worker,
                 workerId,
                 layerNum > 0 ? null : canvasImageData,
                 ssrgHeader.layers,
-                layerBuffer.buffer,
-                layerNum++,
+                layerBuffer,
+                layerNum,
             );
             canvasCtx.clearRect(
                 0,
