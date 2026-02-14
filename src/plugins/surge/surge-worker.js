@@ -8,25 +8,46 @@ onmessage = async (e) => {
         else return gcd(b, a % b);
     }
 
+    const header = e.data.header;
     const workerId = e.data.workerId;
-    const layers = e.data.layers;
-    const layerBuffer = new Int32Array(e.data.layerBuffer);
     const maxLayerIdx = e.data.maxLayerIdx;
+    const layerBuffer = e.data.layerBuffer;
 
-    const imageData = this.data.imageData[workerId] ?? e.data.imageData;
-    const aspectW = imageData.width / gcd(imageData.width, imageData.height);
-    const aspectH = imageData.height / gcd(imageData.width, imageData.height);
+    const layerData = layerBuffer ? new Int32Array(layerBuffer) : null;
+    const imageData =
+        this.data.imageData[workerId] ??
+        new ImageData(header.width, header.height);
+    const aspectW = header.width / gcd(header.width, header.height);
+    const aspectH = header.height / gcd(header.width, header.height);
 
     let currLayerIdx = this.data.layerIndices[workerId] ?? -1;
+    if (currLayerIdx < 0) {
+        const unpackedColor =
+            ((header.avgPixel & 0x7f000000) << 1) |
+            (header.avgPixel & 0x00ffffff);
+        for (let y = 0; y < header.height; y++) {
+            for (let x = 0; x < header.width; x++) {
+                for (let ch = 0; ch < 4; ch++) {
+                    imageData.data[(y * header.width + x) * 4 + ch] =
+                        (unpackedColor >> (ch * 8)) & 0xff;
+                }
+            }
+        }
+    }
+
     function decodeInner(currOffset, layerIdx, x0, y0, width, height) {
         const layerFactorW =
-            layerIdx < 0 ? aspectW : layers[layers.length - (layerIdx + 1)];
+            layerIdx < 0
+                ? aspectW
+                : header.layers[header.layers.length - (layerIdx + 1)];
         const layerFactorH =
-            layerIdx < 0 ? aspectH : layers[layers.length - (layerIdx + 1)];
+            layerIdx < 0
+                ? aspectH
+                : header.layers[header.layers.length - (layerIdx + 1)];
 
         for (let i = 0; i < layerFactorW; i++) {
             for (let j = 0; j < layerFactorH; j++) {
-                let value = layerBuffer[currOffset++];
+                let value = layerData[currOffset++];
                 if (
                     layerIdx < currLayerIdx &&
                     (value > 0 || value == -2147483648)
@@ -43,7 +64,7 @@ onmessage = async (e) => {
                     currOffset++;
                 } else if (layerIdx == currLayerIdx) {
                     if (value > 0 || value == -2147483648) {
-                        value = layerBuffer[currOffset++];
+                        value = layerData[currOffset++];
                     } else if (value < 0 && value != -2147483648) {
                         value = -value;
                     }
@@ -77,9 +98,11 @@ onmessage = async (e) => {
     }
 
     for (; currLayerIdx <= maxLayerIdx; currLayerIdx++) {
-        decodeInner(0, -1, 0, 0, imageData.width, imageData.height);
         const imageBitmap = await createImageBitmap(imageData);
         postMessage({ workerId, currLayerIdx, imageBitmap }, [imageBitmap]);
+        if (layerData) {
+            decodeInner(0, -1, 0, 0, header.width, header.height);
+        }
     }
 
     this.data.layerIndices[workerId] = currLayerIdx;
