@@ -117,17 +117,16 @@ surgePlugin.parse = async function* (url) {
     });
 
     for await (const segment of segmentedStream) {
-        yield new Int32Array(segment.buffer, segment.byteOffset);
+        yield new Uint8Array(segment.buffer, segment.byteOffset);
     }
 };
 
 surgePlugin.decode = function (
+    header,
     worker,
     workerId,
-    imageData,
-    layers,
-    layerBuffer,
     maxLayerIdx,
+    layerBuffer,
 ) {
     return new Promise((resolve, reject) => {
         worker.addEventListener("message", (e) => {
@@ -141,56 +140,55 @@ surgePlugin.decode = function (
 
         worker.postMessage(
             {
+                header,
                 workerId,
-                imageData,
-                layers,
-                layerBuffer,
                 maxLayerIdx,
+                layerBuffer,
             },
-            [layerBuffer],
+            layerBuffer ? [layerBuffer] : [],
         );
     });
 };
 
 surgePlugin.main = async function (surgeElement) {
-    let canvasElem;
-    let canvasCtx;
+    let header;
+    let canvasElem, canvasCtx;
 
-    let ssrgHeader;
-    let canvasImageData;
-
-    const layers = [];
-
+    const altText = surgeElement.getAttribute("alt");
     const classList = surgeElement.classList ?? [];
     const elemId = surgeElement.getAttribute("id");
-    const altText = surgeElement.getAttribute("alt");
     const srcUrl = surgeElement.getAttribute("src");
+
+    let layerNum = -1;
+    const layers = [];
     const workerId = srcUrl + "-" + Date.now();
     const worker = this.getWorker();
-    for await (const chunk of this.parse(srcUrl)) {
-        if (chunk instanceof Int32Array) {
-            const layerNum = layers.length - 1;
-            layers.push(chunk);
 
-            const layerBuffer = concat(layers).buffer;
-            const canvasImageBitmap = await this.decode(
-                worker,
-                workerId,
-                layerNum > 0 ? null : canvasImageData,
-                ssrgHeader.layers,
-                layerBuffer,
-                layerNum,
-            );
-            canvasCtx.clearRect(
-                0,
-                0,
-                canvasImageBitmap.width,
-                canvasImageBitmap.height,
-            );
-            canvasCtx.drawImage(canvasImageBitmap, 0, 0);
-            canvasImageBitmap.close();
+    async function flushNext(options) {
+        const layerBuffer = options.shouldDecode ? concat(layers).buffer : null;
+        const canvasImageBitmap = await surgePlugin.decode(
+            header,
+            worker,
+            workerId,
+            layerNum++,
+            layerBuffer,
+        );
+        canvasCtx.clearRect(
+            0,
+            0,
+            canvasImageBitmap.width,
+            canvasImageBitmap.height,
+        );
+        canvasCtx.drawImage(canvasImageBitmap, 0, 0);
+        canvasImageBitmap.close();
+    }
+
+    for await (const chunk of this.parse(srcUrl)) {
+        if (chunk instanceof Uint8Array) {
+            layers.push(chunk);
+            await flushNext({ shouldDecode: true });
         } else {
-            ssrgHeader = chunk;
+            header = chunk;
 
             canvasElem = document.createElement("canvas");
             canvasCtx = canvasElem.getContext("2d");
@@ -212,33 +210,14 @@ surgePlugin.main = async function (surgeElement) {
                 canvasElem.classList = classList;
             }
 
-            canvasElem.width = ssrgHeader.width;
-            canvasElem.height = ssrgHeader.height;
+            canvasElem.width = header.width;
+            canvasElem.height = header.height;
 
             surgeElement.parentElement.appendChild(canvasElem);
             surgeElement.remove();
-
-            canvasImageData = canvasCtx.getImageData(
-                0,
-                0,
-                ssrgHeader.width,
-                ssrgHeader.height,
-            );
-
-            const unpackedColor =
-                ((ssrgHeader.avgPixel & 0x7f000000) << 1) |
-                (ssrgHeader.avgPixel & 0x00ffffff);
-            for (let y = 0; y < ssrgHeader.height; y++) {
-                for (let x = 0; x < ssrgHeader.width; x++) {
-                    for (let ch = 0; ch < 4; ch++) {
-                        canvasImageData.data[
-                            (y * ssrgHeader.width + x) * 4 + ch
-                        ] = (unpackedColor >> (ch * 8)) & 0xff;
-                    }
-                }
-            }
         }
     }
+    await flushNext({ shouldDecode: false });
 };
 
 new MutationObserver((mutations) =>
